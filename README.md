@@ -1,3 +1,7 @@
+**This repo is a fork of [amzeratul/halley](https://github.com/amzeratul/halley). We recommend using the original, not this one!**
+
+---
+
 ![Halley Logo](http://higherorderfun.com/stuff/halley/halley_scarlet.png)
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://en.wikipedia.org/wiki/C%2B%2B14)
