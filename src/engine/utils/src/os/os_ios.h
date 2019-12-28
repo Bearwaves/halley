@@ -21,8 +21,9 @@
 
 #pragma once
 
-
-#ifdef __IPHONEOS__
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
 
 #include "os_unix.h"
 
@@ -35,4 +36,5 @@ namespace Halley {
 	};
 }
 
+#endif
 #endif

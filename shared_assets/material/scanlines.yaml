@@ -6,6 +6,7 @@ uniforms:
     - u_col0: vec4
     - u_col1: vec4
     - u_distance: float
+    - pad: vec3
 passes:
   - blend: Opaque
     shader:

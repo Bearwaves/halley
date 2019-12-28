@@ -6,7 +6,12 @@
 
 #include <halley/core/graphics/texture.h>
 #include <halley/core/graphics/shader.h>
+
+#ifdef WITH_SDL2
 #include <SDL2/SDL.h>
+#elif WITH_IOS
+#include <UIKit/UIKit.h>
+#endif
 
 using namespace Halley;
 
@@ -51,6 +56,7 @@ void MetalVideo::setWindow(WindowDefinition&& windowDescriptor)
 }
 
 void MetalVideo::initSwapChain(Window& window) {
+#ifdef WITH_SDL2
 	if (window.getNativeHandleType() != "SDL") {
 		throw Exception("Only SDL2 windows are supported by Metal", HalleyExceptions::VideoPlugin);
 	}
@@ -59,6 +65,11 @@ void MetalVideo::initSwapChain(Window& window) {
 	SDL_Renderer *renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_PRESENTVSYNC);
 	swap_chain = static_cast<CAMetalLayer*>(SDL_RenderGetMetalLayer(renderer));
 	SDL_DestroyRenderer(renderer);
+#elif WITH_IOS
+	UIWindow* ios_window = static_cast<UIWindow*>(window.getNativeHandle());
+	UIView* top_view = ios_window.rootViewController.view;
+	swap_chain = static_cast<CAMetalLayer*>(top_view.layer);
+#endif
 	swap_chain.pixelFormat = MTLPixelFormatBGRA8Unorm;
 	device = swap_chain.device;
 	command_queue = [device newCommandQueue];

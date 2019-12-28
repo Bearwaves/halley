@@ -46,11 +46,15 @@ OS* OS::createOS()
 #if defined(_WIN32) && !defined(WINDOWS_STORE)
 	return new OSWin32();
 #elif defined(__APPLE__)
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+  return new OSiOS();
+#else
 	return new OSMac();
+#endif
+    
 #elif defined(__ANDROID__)
 	return new OSAndroid();
-#elif defined(__IPHONEOS__)
-	return new OSiOS();
 #elif defined(linux)
 	return new OSLinux();
 #elif defined(__FreeBSD__) && !defined(__ORBIS__)

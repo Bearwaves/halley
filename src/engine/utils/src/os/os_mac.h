@@ -23,6 +23,8 @@
 
 
 #ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_MAC && !TARGET_OS_IPHONE
 
 #include "os_unix.h"
 
@@ -35,4 +37,5 @@ namespace Halley {
 	};
 }
 
+#endif
 #endif

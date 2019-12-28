@@ -19,7 +19,9 @@
 
 \*****************************************************************/
 
-#ifdef __IPHONEOS__
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
 
 #include "os_ios.h"
 #include <stdlib.h>
@@ -43,4 +45,5 @@ Halley::String Halley::OSiOS::makeDataPath(String, String)
 	return "";
 }
 
+#endif
 #endif

@@ -32,7 +32,7 @@ namespace Halley
 	};
 }
 
-#ifdef _MSC_VER
+#if _MSC_VER
 	#define HALLEY_EXPORT extern "C" __declspec(dllexport)
 #else
 	#define HALLEY_EXPORT

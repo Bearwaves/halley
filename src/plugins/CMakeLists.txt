@@ -33,3 +33,7 @@ endif ()
 if (USE_ANDROID)
     add_subdirectory(android)
 endif ()
+
+if (USE_IOS)
+    add_subdirectory(ios)
+endif ()

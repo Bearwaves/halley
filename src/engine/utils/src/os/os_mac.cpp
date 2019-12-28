@@ -20,6 +20,8 @@
 \*****************************************************************/
 
 #ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_MAC && !TARGET_OS_IPHONE
 
 #include "os_mac.h"
 #include <stdlib.h>
@@ -66,4 +68,5 @@ void OSMac::openURL(const String& url)
 	}
 }
 
+#endif
 #endif

@@ -2,16 +2,16 @@ include(PrecompiledHeader)
 
 
 function(string_starts_with str prefix var)
-  string(LENGTH "${str}" str_length)
-  string(LENGTH "${prefix}" prefix_length)
-  set(value FALSE)
-  if(NOT ${str_length} LESS ${prefix_length})
-    string(SUBSTRING "${str}" 0 ${prefix_length} str_prefix)
-    if("${str_prefix}" STREQUAL "${prefix}")
-      set(value TRUE)
-    endif()
-  endif()
-  set(${var} ${value} PARENT_SCOPE)
+	string(LENGTH "${str}" str_length)
+	string(LENGTH "${prefix}" prefix_length)
+	set(value FALSE)
+	if(NOT ${str_length} LESS ${prefix_length})
+		string(SUBSTRING "${str}" 0 ${prefix_length} str_prefix)
+		if("${str_prefix}" STREQUAL "${prefix}")
+			set(value TRUE)
+		endif()
+	endif()
+	set(${var} ${value} PARENT_SCOPE)
 endfunction()
 
 
@@ -36,7 +36,7 @@ endif()
 # C++17 support
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin" OR ${CMAKE_SYSTEM_NAME} MATCHES "iOS")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -stdlib=libc++") # Apparently Clang on Mac needs this...
 endif()
 if (EMSCRIPTEN)
@@ -88,7 +88,7 @@ else()
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 
 	if (HALLEY_ENABLE_STATIC_STDLIB)
-		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU") 
+		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -static-libgcc")
 			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc -static-libstdc++")
 		endif()
@@ -115,6 +115,7 @@ set(USE_WINRT 0)
 set(USE_MEDIA_FOUNDATION 0)
 set(USE_AVFOUNDATION 0)
 set(USE_ANDROID 0)
+set(USE_IOS 0)
 
 if (EMSCRIPTEN)
 	set(USE_SDL2 0)
@@ -146,10 +147,19 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "WindowsStore")
 	set(USE_WINRT 1)
 endif ()
 
-if (APPLE)
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set(USE_AVFOUNDATION 1)
+  set(USE_METAL 1)
+	set(USE_ASIO 1)
+endif ()
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "iOS")
 	set(USE_AVFOUNDATION 1)
 	set(USE_METAL 1)
-	set(USE_ASIO 1)
+	set(USE_IOS 1)
+	set(USE_SDL2 0)
+	set(USE_ASIO 0)
+	set(USE_OPENGL 0)
 endif ()
 
 # Libs
@@ -226,6 +236,11 @@ if (USE_ANDROID)
 	add_definitions(-DWITH_ANDROID)
 endif()
 
+# iOS
+if (USE_IOS)
+	add_definitions(-DWITH_IOS)
+endif()
+
 # Microsoft Media Foundation
 if (USE_MEDIA_FOUNDATION)
 	add_definitions(-DWITH_MEDIA_FOUNDATION)
@@ -233,26 +248,36 @@ endif()
 
 # Apple AVFoundation
 if (USE_AVFOUNDATION)
-  add_definitions(-DWITH_AVFOUNDATION)
+	add_definitions(-DWITH_AVFOUNDATION)
 endif()
 
 # Apple frameworks
 if (APPLE)
-	find_library(CARBON_LIBRARY Carbon)
-	find_library(COCOA_LIBRARY Cocoa)
-	find_library(COREAUDIO_LIBRARY CoreAudio)
-	find_library(AUDIOUNIT_LIBRARY AudioUnit)
-	find_library(FORCEFEEDBACK_LIBRARY ForceFeedback)
-	find_library(IOKIT_LIBRARY IOKit)
-	find_library(COREVIDEO_LIBRARY CoreVideo)
-	find_library(AUDIOTOOLBOX_LIBRARY AudioToolbox)
+	if (${CMAKE_SYSTEM_NAME} MATCHES "iOS")
+		find_library(FOUNDATION_LIBRARY Foundation)
+		find_library(UIKIT_LIBRARY UIKit)
 
-	mark_as_advanced(CARBON_LIBRARY COCOA_LIBRARY COREAUDIO_LIBRARY AUDIOTOOLBOX_LIBRARY AUDIOUNIT_LIBRARY FORCEFEEDBACK_LIBRARY IOKIT_LIBRARY COREVIDEO_LIBRARY)
+		mark_as_advanced(FOUNDATION_LIBRARY UIKIT_LIBRARY)
 
-	set(EXTRA_LIBS ${EXTRA_LIBS} ${CARBON_LIBRARY} ${COCOA_LIBRARY} ${COREAUDIO_LIBRARY} ${AUDIOTOOLBOX_LIBRARY} ${AUDIOUNIT_LIBRARY} ${FORCEFEEDBACK_LIBRARY} ${IOKIT_LIBRARY} ${COREVIDEO_LIBRARY} iconv)
+		set (EXTRA_LIBS ${EXTRA_LIBS} ${FOUNDATION_LIBRARY} ${UIKIT_LIBRARY})
+	# If not iOS, assume macOS
+	else()
+		find_library(CARBON_LIBRARY Carbon)
+		find_library(COCOA_LIBRARY Cocoa)
+		find_library(COREAUDIO_LIBRARY CoreAudio)
+		find_library(AUDIOUNIT_LIBRARY AudioUnit)
+		find_library(FORCEFEEDBACK_LIBRARY ForceFeedback)
+		find_library(IOKIT_LIBRARY IOKit)
+		find_library(COREVIDEO_LIBRARY CoreVideo)
+		find_library(AUDIOTOOLBOX_LIBRARY AudioToolbox)
 
-	if (BUILD_MACOSX_BUNDLE)
-		add_definitions(-DHALLEY_MACOSX_BUNDLE)
+		mark_as_advanced(CARBON_LIBRARY COCOA_LIBRARY COREAUDIO_LIBRARY AUDIOTOOLBOX_LIBRARY AUDIOUNIT_LIBRARY FORCEFEEDBACK_LIBRARY IOKIT_LIBRARY COREVIDEO_LIBRARY)
+
+		set(EXTRA_LIBS ${EXTRA_LIBS} ${CARBON_LIBRARY} ${COCOA_LIBRARY} ${COREAUDIO_LIBRARY} ${AUDIOTOOLBOX_LIBRARY} ${AUDIOUNIT_LIBRARY} ${FORCEFEEDBACK_LIBRARY} ${IOKIT_LIBRARY} ${COREVIDEO_LIBRARY} iconv)
+
+		if (BUILD_MACOSX_BUNDLE)
+			add_definitions(-DHALLEY_MACOSX_BUNDLE)
+		endif()
 	endif()
 endif(APPLE)
 
@@ -292,7 +317,7 @@ set(HALLEY_PROJECT_INCLUDE_DIRS
 	${HALLEY_PATH}/src/engine/audio/include
 	${HALLEY_PATH}/src/engine/lua/include
 	${HALLEY_PATH}/src/engine/ui/include
-	${Boost_INCLUDE_DIR} 
+	${Boost_INCLUDE_DIR}
 	)
 
 set(HALLEY_PROJECT_LIBS
@@ -397,6 +422,9 @@ function(halleyProject name sources headers genDefinitions targetDir)
 	set(EMBED ${HALLEY_PROJECT_EMBED})
 	set(HALLEY_PROJECT_EMBED 0)
 
+	# Used to find assets root
+	set(HALLEY_PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
 	if (EMBED)
 		add_subdirectory(halley)
 	endif()
@@ -409,7 +437,7 @@ function(halleyProject name sources headers genDefinitions targetDir)
 	file (GLOB_RECURSE ${name}_sources_gen "gen/*.cpp")
 	file (GLOB_RECURSE ${name}_sources_systems "src/systems/*.cpp")
 	file (GLOB_RECURSE ${name}_headers_gen "gen/*.h")
-	
+
 	set(proj_sources ${sources} ${${name}_sources_gen} ${${name}_sources_systems})
 	set(proj_headers ${headers} ${${name}_headers_gen} ${genDefinitions})
 
@@ -422,6 +450,9 @@ function(halleyProject name sources headers genDefinitions targetDir)
 	if (ANDROID_NDK)
 		add_library(${name} SHARED ${proj_sources} ${proj_headers})
 		add_definitions(-DHALLEY_SHARED_LIBRARY)
+	elseif (USE_IOS)
+		add_library(${name} ${proj_sources} ${proj_headers})
+		add_definitions(-DHALLEY_SHARED_LIBRARY) # Not actually shared, but needed for the HalleyGame macro
 	elseif (HALLEY_MONOLITHIC)
 		add_executable(${name} WIN32 ${proj_sources} ${proj_headers})
 		target_compile_definitions(${name} PUBLIC HALLEY_EXECUTABLE)
@@ -479,6 +510,9 @@ function(halleyProject name sources headers genDefinitions targetDir)
 		if (USE_DX11)
 			SET(LINK_LIBRARIES ${LINK_LIBRARIES} halley-dx11)
 		endif ()
+		if (USE_METAL)
+			target_link_libraries(${name} halley-metal)
+		endif()
 		if (USE_WINRT)
 			SET(LINK_LIBRARIES ${LINK_LIBRARIES} halley-winrt)
 		endif ()
