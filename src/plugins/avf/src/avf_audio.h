@@ -4,17 +4,17 @@
 #include <AVFoundation/AVFoundation.h>
 
 namespace Halley {
-	class IOSAudioDevice final : public AudioDevice
+	class AVFAudioDevice final : public AudioDevice
 	{
 	public:
-		IOSAudioDevice(String name);
+		AVFAudioDevice(String name);
 		String getName() const override;
 
 	private:
 		String name;
 	};
 
-	class IOSAudioAPI final : public AudioOutputAPIInternal
+	class AVFAudioAPI final : public AudioOutputAPIInternal
 	{
 	public:
 		void init() override;

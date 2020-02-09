@@ -1,43 +1,46 @@
-#include "ios_audio.h"
+#include "avf_audio.h"
 
 using namespace Halley;
 
-IOSAudioDevice::IOSAudioDevice(String name)
+AVFAudioDevice::AVFAudioDevice(String name)
 	: name(name)
 {
 }
 
-String IOSAudioDevice::getName() const
+String AVFAudioDevice::getName() const
 {
 	return name != "" ? name : "Default";
 }
 
 
-void IOSAudioAPI::init()
+void AVFAudioAPI::init()
 {
 	engine = [[AVAudioEngine alloc] init];
+	[engine retain];
 }
 
-bool IOSAudioAPI::needsAudioThread() const
+bool AVFAudioAPI::needsAudioThread() const
 {
-	return true;
+	return false;
 }
 
-void IOSAudioAPI::deInit()
+void AVFAudioAPI::deInit()
 {
 	closeAudioDevice();
 	[engine release];
 }
 
-Vector<std::unique_ptr<const AudioDevice>> IOSAudioAPI::getAudioDevices()
+Vector<std::unique_ptr<const AudioDevice>> AVFAudioAPI::getAudioDevices()
 {
 	Vector<std::unique_ptr<const AudioDevice>> result;
-	result.emplace_back(std::make_unique<IOSAudioDevice>("Default"));
+	result.emplace_back(std::make_unique<AVFAudioDevice>("Default"));
 	return result;
 }
 
-AudioSpec IOSAudioAPI::openAudioDevice(const AudioSpec& requestedFormat, const AudioDevice* dev, AudioCallback callback)
+AudioSpec AVFAudioAPI::openAudioDevice(const AudioSpec& requestedFormat, const AudioDevice* dev, AudioCallback callback)
 {
+	this->callback = callback;
+
 	if (requestedFormat.format == AudioSampleFormat::Undefined) {
 		throw Exception("Invalid audio format", HalleyExceptions::AudioOutPlugin);
 	}
@@ -46,19 +49,22 @@ AudioSpec IOSAudioAPI::openAudioDevice(const AudioSpec& requestedFormat, const A
 			sampleRate:requestedFormat.sampleRate
 			channels:requestedFormat.numChannels
 			interleaved:NO];
+	[open_device_format retain];
 
 	buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:open_device_format
 			frameCapacity:requestedFormat.bufferSize];
+	[buffer retain];
 
 	AVAudioMixerNode* mixer = [engine mainMixerNode];
 	open_device_player = [[AVAudioPlayerNode alloc] init];
+	[open_device_player retain];
 	[engine attachNode:open_device_player];
 	[engine connect:open_device_player to:mixer format:buffer.format];
 
 	return requestedFormat;
 }
 
-void IOSAudioAPI::closeAudioDevice()
+void AVFAudioAPI::closeAudioDevice()
 {
 	[engine detachNode:open_device_player];
 	[open_device_player release];
@@ -66,7 +72,7 @@ void IOSAudioAPI::closeAudioDevice()
 	[buffer release];
 }
 
-void IOSAudioAPI::startPlayback()
+void AVFAudioAPI::startPlayback()
 {
 	if (!engine) {
 		throw Exception("Audio not initialised.", HalleyExceptions::AudioOutPlugin);
@@ -78,19 +84,20 @@ void IOSAudioAPI::startPlayback()
 		}
 	}
 	playing = true;
+	callback();
 }
 
-void IOSAudioAPI::stopPlayback()
+void AVFAudioAPI::stopPlayback()
 {
 	if (engine && playing) {
-		[engine pause];
+		[engine stop];
 		playing = false;
 	}
 }
 
-void IOSAudioAPI::queueAudio(gsl::span<const float> data)
+void AVFAudioAPI::queueAudio(gsl::span<const float> data)
 {
-	char* toCopy = (char*) buffer.floatChannelData;
+	char* toCopy = (char*) *buffer.floatChannelData;
 	if (open_device_format.commonFormat == AVAudioPCMFormatInt16) {
 		toCopy = (char*) buffer.int16ChannelData;
 	} else if (open_device_format.commonFormat == AVAudioPCMFormatInt32) {
@@ -99,17 +106,19 @@ void IOSAudioAPI::queueAudio(gsl::span<const float> data)
 
 	auto bytes = gsl::as_bytes(data);
 
-	memcpy(toCopy, bytes.data(), bytes.size_bytes());
+	memcpy(toCopy, bytes.data(), bytes.size_bytes()/2);
+	buffer.frameLength = (bytes.size_bytes() / 8);
 
 	[open_device_player scheduleBuffer:buffer completionHandler:^{callback();}];
+	[open_device_player play];
 }
 
-bool IOSAudioAPI::needsMoreAudio()
+bool AVFAudioAPI::needsMoreAudio()
 {
 	return false;
 }
 
-AVAudioCommonFormat IOSAudioAPI::getNativeAudioFormat(AudioSampleFormat format)
+AVAudioCommonFormat AVFAudioAPI::getNativeAudioFormat(AudioSampleFormat format)
 {
 	switch (format) {
 		case AudioSampleFormat::Int16:
