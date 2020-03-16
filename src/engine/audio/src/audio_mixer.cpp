@@ -51,7 +51,7 @@ void AudioMixer::concatenateChannels(gsl::span<AudioSamplePack> dst, gsl::span<A
 	size_t pos = 0;
 	for (size_t i = 0; i < size_t(srcs.size()); ++i) {
 		const size_t nBytes = srcs[i]->packs.size() * sizeof(AudioSamplePack);
-		memcpy(dst.subspan(pos, nBytes).data(), srcs[i]->packs.data(), nBytes);
+		memcpy(pos + dst.data(), srcs[i]->packs.data(), nBytes);
 		pos += nBytes;
 	}
 }

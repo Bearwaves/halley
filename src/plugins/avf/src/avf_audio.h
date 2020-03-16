@@ -31,6 +31,7 @@ namespace Halley {
 		bool needsMoreAudio() override;
 
 		bool needsAudioThread() const override;
+		bool needsInterleavedSamples() const override;
 
 	private:
 		AVAudioCommonFormat getNativeAudioFormat(AudioSampleFormat format);
@@ -41,5 +42,12 @@ namespace Halley {
 		AVAudioFormat* open_device_format;
 		AVAudioPCMBuffer* buffer;
 		bool playing;
+		
+		std::mutex mutex;
+		std::list<std::vector<unsigned char>> audioQueue;
+		int remaining;
+
+		void doQueueAudio(gsl::span<const gsl::byte> data);
+		void onCallback();
 	};
 }

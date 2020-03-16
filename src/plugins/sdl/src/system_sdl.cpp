@@ -92,6 +92,7 @@ Path SystemSDL::getUnpackedAssetsPath(const Path& gamePath) const
 bool SystemSDL::generateEvents(VideoAPI* video, InputAPI* input)
 {
 	SDL_Event event;
+
 	SDL_PumpEvents();
 	while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT) > 0) {
 		switch (event.type) {

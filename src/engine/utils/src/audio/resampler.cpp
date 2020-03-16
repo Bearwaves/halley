@@ -67,6 +67,9 @@ AudioResamplerResult AudioResampler::resampleNoninterleaved(gsl::span<const floa
 		result.nWritten += outLen;
 	}
 
+	result.nRead /= nChannels;
+	result.nWritten /= nChannels;
+	
 	return result;
 }
 

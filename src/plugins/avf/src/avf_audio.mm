@@ -46,13 +46,19 @@ AudioSpec AVFAudioAPI::openAudioDevice(const AudioSpec& requestedFormat, const A
 	}
 
 	open_device_format = [[AVAudioFormat alloc] initWithCommonFormat:getNativeAudioFormat(requestedFormat.format)
-			sampleRate:requestedFormat.sampleRate
+			sampleRate:44100
 			channels:requestedFormat.numChannels
 			interleaved:NO];
 	[open_device_format retain];
+	
+	AudioSpec actualFormat;
+	actualFormat.bufferSize = requestedFormat.bufferSize;
+	actualFormat.format = requestedFormat.format;
+	actualFormat.numChannels = requestedFormat.numChannels;
+	actualFormat.sampleRate = 44100;
 
 	buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:open_device_format
-			frameCapacity:requestedFormat.bufferSize];
+			frameCapacity:1024];
 	[buffer retain];
 
 	AVAudioMixerNode* mixer = [engine mainMixerNode];
@@ -61,7 +67,7 @@ AudioSpec AVFAudioAPI::openAudioDevice(const AudioSpec& requestedFormat, const A
 	[engine attachNode:open_device_player];
 	[engine connect:open_device_player to:mixer format:buffer.format];
 
-	return requestedFormat;
+	return actualFormat;
 }
 
 void AVFAudioAPI::closeAudioDevice()
@@ -84,7 +90,7 @@ void AVFAudioAPI::startPlayback()
 		}
 	}
 	playing = true;
-	callback();
+	onCallback();
 }
 
 void AVFAudioAPI::stopPlayback()
@@ -97,23 +103,50 @@ void AVFAudioAPI::stopPlayback()
 
 void AVFAudioAPI::queueAudio(gsl::span<const float> data)
 {
-	char* toCopy = (char*) *buffer.floatChannelData;
-	if (open_device_format.commonFormat == AVAudioPCMFormatInt16) {
-		toCopy = (char*) buffer.int16ChannelData;
-	} else if (open_device_format.commonFormat == AVAudioPCMFormatInt32) {
-		toCopy = (char*) buffer.int32ChannelData;
+	Expects(engine);
+	
+	doQueueAudio(gsl::as_bytes(data));
+}
+
+void AVFAudioAPI::doQueueAudio(gsl::span<const gsl::byte> data)
+{
+	std::vector<unsigned char> tmp(data.size_bytes());
+	memcpy(tmp.data(), data.data(), data.size_bytes());
+
+	std::unique_lock<std::mutex> lock(mutex);
+	audioQueue.push_back(std::move(tmp));
+}
+
+void AVFAudioAPI::onCallback()
+{
+	Expects(engine);
+	std::unique_lock<std::mutex> lock(mutex);
+	
+	if (audioQueue.empty()) {
+		lock.unlock();
+		if (callback) {
+			callback();
+		}
+		if (!audioQueue.empty()) {
+			onCallback();
+		}
+	} else {
+		auto& front = audioQueue.front();
+		memcpy(buffer.floatChannelData[1], front.data(), front.size()/2);
+		//memcpy(buffer.floatChannelData[1], front.data() + front.size()/2, front.size()/2);
+		buffer.frameLength = front.size() / 8;
+		[open_device_player scheduleBuffer:buffer completionHandler:^{onCallback();}];
+		audioQueue.pop_front();
+		[open_device_player play];
 	}
-
-	auto bytes = gsl::as_bytes(data);
-
-	memcpy(toCopy, bytes.data(), bytes.size_bytes()/2);
-	buffer.frameLength = (bytes.size_bytes() / 8);
-
-	[open_device_player scheduleBuffer:buffer completionHandler:^{callback();}];
-	[open_device_player play];
 }
 
 bool AVFAudioAPI::needsMoreAudio()
+{
+	return false;
+}
+
+bool AVFAudioAPI::needsInterleavedSamples() const
 {
 	return false;
 }
