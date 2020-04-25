@@ -40,6 +40,9 @@ void MetalTexture::load(TextureDescriptor&& descriptor)
 		height:descriptor.size.y
 		mipmapped:descriptor.useMipMap
 	];
+	if (descriptor.isRenderTarget) {
+		textureDescriptor.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+	}
 	metalTexture = [video.getDevice() newTextureWithDescriptor:textureDescriptor];
 
 	NSUInteger bytesPerRow = bytesPerPixel * descriptor.size.x;
@@ -48,9 +51,9 @@ void MetalTexture::load(TextureDescriptor&& descriptor)
 		{static_cast<NSUInteger>(descriptor.size.x), static_cast<NSUInteger>(descriptor.size.y), 1}
 	};
 
+	Vector<Byte> blank;
 	Byte* imageBytes;
 	if (descriptor.pixelData.empty()) {
-		Vector<Byte> blank;
 		blank.resize(size.x * size.y * TextureDescriptor::getBitsPerPixel(descriptor.format));
 		imageBytes = blank.data();
 	} else {

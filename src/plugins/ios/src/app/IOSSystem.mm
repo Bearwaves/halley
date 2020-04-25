@@ -1,6 +1,6 @@
 #include "IOSSystem.h"
-#include <halley/runner/game_loader.h>
-#include <halley/runner/entry_point.h>
+#include <halley/core/entry/game_loader.h>
+#include <halley/core/entry/entry_point.h>
 #include <string>
 
 using namespace Halley;

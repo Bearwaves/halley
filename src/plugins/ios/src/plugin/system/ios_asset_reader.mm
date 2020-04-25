@@ -23,7 +23,7 @@ size_t IOSAssetReader::size() const
 
 int IOSAssetReader::read(gsl::span<gsl::byte> dst)
 {
-	NSData* buffer = [handle readDataOfLength:dst.length()];
+	NSData* buffer = [handle readDataOfLength:dst.size_bytes()];
 	[buffer getBytes:dst.data() length:buffer.length];
 	return (int) buffer.length;
 }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../plugin/input/ios_input.h"
-#include <halley/runner/main_loop.h>
+#include <halley/core/game/main_loop.h>
 #include <memory>
 #include <UIKit/UIKit.h>
 

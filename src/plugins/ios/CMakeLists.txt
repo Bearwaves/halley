@@ -9,7 +9,6 @@ set(SOURCES
 				"src/plugin/system/ios_asset_reader.mm"
 				"src/plugin/system/ios_window.mm"
 				"src/plugin/input/ios_input.mm"
-				"src/plugin/audio/ios_audio.mm"
 
 				"src/app/main.mm"
 				"src/app/AppDelegate.mm"
@@ -24,7 +23,6 @@ set(HEADERS
 				"src/plugin/system/ios_asset_reader.h"
 				"src/plugin/system/ios_window.h"
 				"src/plugin/input/ios_input.h"
-				"src/plugin/audio/ios_audio.h"
 
 				"src/app/AppDelegate.h"
 				"src/app/IOSSystem.h"
