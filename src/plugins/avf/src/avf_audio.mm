@@ -19,11 +19,6 @@ void AVFAudioAPI::init()
 	[engine retain];
 }
 
-bool AVFAudioAPI::needsAudioThread() const
-{
-	return false;
-}
-
 void AVFAudioAPI::deInit()
 {
 	closeAudioDevice();
@@ -39,7 +34,7 @@ Vector<std::unique_ptr<const AudioDevice>> AVFAudioAPI::getAudioDevices()
 
 AudioSpec AVFAudioAPI::openAudioDevice(const AudioSpec& requestedFormat, const AudioDevice* dev, AudioCallback callback)
 {
-	this->callback = callback;
+	prepareAudioCallback = callback;
 
 	if (requestedFormat.format == AudioSampleFormat::Undefined) {
 		throw Exception("Invalid audio format", HalleyExceptions::AudioOutPlugin);
@@ -51,6 +46,12 @@ AudioSpec AVFAudioAPI::openAudioDevice(const AudioSpec& requestedFormat, const A
 			interleaved:NO];
 	[open_device_format retain];
 
+	AudioSpec actualFormat;
+	actualFormat.bufferSize = requestedFormat.bufferSize;
+	actualFormat.format = requestedFormat.format;
+	actualFormat.numChannels = requestedFormat.numChannels;
+	actualFormat.sampleRate = 44100;
+
 	buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:open_device_format
 			frameCapacity:requestedFormat.bufferSize];
 	[buffer retain];
@@ -61,7 +62,8 @@ AudioSpec AVFAudioAPI::openAudioDevice(const AudioSpec& requestedFormat, const A
 	[engine attachNode:open_device_player];
 	[engine connect:open_device_player to:mixer format:buffer.format];
 
-	return requestedFormat;
+	output_format = actualFormat;
+	return actualFormat;
 }
 
 void AVFAudioAPI::closeAudioDevice()
@@ -84,7 +86,7 @@ void AVFAudioAPI::startPlayback()
 		}
 	}
 	playing = true;
-	callback();
+	onCallback();
 }
 
 void AVFAudioAPI::stopPlayback()
@@ -95,27 +97,38 @@ void AVFAudioAPI::stopPlayback()
 	}
 }
 
-void AVFAudioAPI::queueAudio(gsl::span<const float> data)
+void AVFAudioAPI::onCallback()
 {
-	char* toCopy = (char*) *buffer.floatChannelData;
-	if (open_device_format.commonFormat == AVAudioPCMFormatInt16) {
-		toCopy = (char*) buffer.int16ChannelData;
-	} else if (open_device_format.commonFormat == AVAudioPCMFormatInt32) {
-		toCopy = (char*) buffer.int32ChannelData;
-	}
+	Expects(engine);
 
-	auto bytes = gsl::as_bytes(data);
-
-	memcpy(toCopy, bytes.data(), bytes.size_bytes()/2);
-	buffer.frameLength = (bytes.size_bytes() / 8);
-
-	[open_device_player scheduleBuffer:buffer completionHandler:^{callback();}];
+	std::cout << "out" <<std::endl;
+	const auto dst = gsl::span<std::byte>(reinterpret_cast<std::byte*>(*buffer.floatChannelData), buffer.frameCapacity * 8);
+	const auto written = getAudioOutputInterface().output(dst, false);
+	std::cout << "written: " << written << "cap: " << buffer.frameCapacity << std::endl;
+	buffer.frameLength = written / 8;
+	[open_device_player scheduleBuffer:buffer completionHandler:^{onCallback();}];
 	[open_device_player play];
+}
+
+bool AVFAudioAPI::needsAudioThread() const
+{
+	return false;
 }
 
 bool AVFAudioAPI::needsMoreAudio()
 {
+	std::cout << "needs" << std::endl;
+	return getAudioOutputInterface().getAvailable() < getAudioBytesNeeded(output_format, 2);
+}
+
+bool AVFAudioAPI::needsInterleavedSamples() const
+{
 	return false;
+}
+
+void AVFAudioAPI::onAudioAvailable()
+{
+	std::cout << "avail" <<std::endl;
 }
 
 AVAudioCommonFormat AVFAudioAPI::getNativeAudioFormat(AudioSampleFormat format)
